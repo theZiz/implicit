@@ -20,18 +20,59 @@
 
 #include <sparrow3d.h>
 
+#define RESOLUTION spFloatToFixed(0.1f)
+#define MIN spFloatToFixed(-2.0f)
+#define MAX spFloatToFixed( 2.0f)
+
 SDL_Surface* screen;
+Sint32 rotation;
+
+Sint32 sphere(Sint32 x,Sint32 y,Sint32 z)
+{
+	return spSqrt(spSquare(x)+spSquare(y)+spSquare(z))-SP_ONE;
+}
+
+Sint32 cube(Sint32 x,Sint32 y,Sint32 z)
+{
+	return spMax(abs(x),spMax(abs(y),abs(z)))-SP_ONE;
+}
 
 void draw( void )
 {
 	spResetZBuffer();
+	spIdentity();
 	spClearTarget( 12345 );
+	spSetZSet(0);
+	spSetZTest(0);
+	spTranslate(0,0,spFloatToFixed(-3.0f));
 	
+	spRotateX(rotation);
+	spRotateY(rotation/2);
+	spRotateZ(rotation/4);
+	//Marching cubes!
+	Sint32 x,y,z;
+	spSetBlending(spFloatToFixed(0.5f));
+	for (x = MIN; x <= MAX; x+=RESOLUTION)
+		for (y = MIN; y <= MAX; y+=RESOLUTION)
+			for (z = MIN; z <= MAX; z+=RESOLUTION)
+			{
+				Sint32 value = sphere(x,y,z);
+				if (value <= 0)
+				{
+					Sint32 h = spFixedToInt(-value * 256);
+					if (h > 255)
+						h = 255;
+					h = 255-h;
+					spEllipse3D(x,y,z,RESOLUTION/2,RESOLUTION/2,spGetFastRGB(h,h,h));
+				}
+			}
+	spSetBlending(SP_ONE);
 	spFlip();
 }
 
 int calc( Uint32 steps )
 {
+	rotation += steps*32;
 	if ( spGetInput()->button[SP_BUTTON_START] )
 		return 1;
 	return 0;
