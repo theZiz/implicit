@@ -79,6 +79,8 @@ Sint32 function_with_modelview(Sint32* model,Sint32 (*function)(Sint32 x,Sint32 
 #define VALUE(x,y,z) raster[(x)+(y)*size+(z)*size*size]
 #define PIXEL(x,y,z) rasterGrid[(x)+(y)*size+(z)*size*size]
 
+#define FIRST_TRANSFORMATION
+
 int count_in(Sint32* points)
 {
 	int i;
@@ -114,43 +116,43 @@ void draw_one(Sint32* point,tPoint* position,int the_one,int backwards)
 	{
 		case 0:
 			edge[0] = 1;
-			edge[1] = 4;
-			edge[2] = 3;
+			edge[1] = 3;
+			edge[2] = 4;
 			break;
 		case 1:
 			edge[0] = 0;
-			edge[1] = 2;
-			edge[2] = 5;
+			edge[1] = 5;
+			edge[2] = 2;
 			break;
 		case 2:
 			edge[0] = 1;
-			edge[1] = 3;
-			edge[2] = 6;
+			edge[1] = 6;
+			edge[2] = 3;
 			break;
 		case 3:
 			edge[0] = 0;
-			edge[1] = 7;
-			edge[2] = 2;
+			edge[1] = 2;
+			edge[2] = 7;
 			break;
 		case 4:
 			edge[0] = 0;
-			edge[1] = 5;
-			edge[2] = 7;
-			break;
-		case 5:
-			edge[0] = 1;
-			edge[1] = 6;
-			edge[2] = 4;
-			break;
-		case 6:
-			edge[0] = 2;
 			edge[1] = 7;
 			edge[2] = 5;
 			break;
-		case 7:
-			edge[0] = 3;
+		case 5:
+			edge[0] = 1;
 			edge[1] = 4;
 			edge[2] = 6;
+			break;
+		case 6:
+			edge[0] = 2;
+			edge[1] = 5;
+			edge[2] = 7;
+			break;
+		case 7:
+			edge[0] = 3;
+			edge[1] = 6;
+			edge[2] = 4;
 			break;
 	}
 	if (backwards)
@@ -183,11 +185,13 @@ void draw( void )
 	
 	Sint32 zShift = spFloatToFixed(-3.0f);
 
-	spTranslate(0,0,zShift);
-	
+
+	#ifdef FIRST_TRANSFORMATION
+	spTranslate(0,0,zShift);	
 	spRotateX(rotation);
 	spRotateY(rotation/2);
 	spRotateZ(rotation/4);
+	#endif
 	
 	int size = (MAX-MIN)/RESOLUTION+1;
 	
@@ -215,6 +219,12 @@ void draw( void )
 				}
 			}
 	spIdentity();
+	#ifndef FIRST_TRANSFORMATION
+	spTranslate(0,0,zShift);	
+	spRotateX(rotation);
+	spRotateY(rotation/2);
+	spRotateZ(rotation/4);
+	#endif
 	//spSetBlending(spFloatToFixed(0.5f));
 	int countcount[8];
 	memset(countcount,0,32);
@@ -248,7 +258,7 @@ void draw( void )
 					case 7: draw_one(points,position,get_the_none(points),1); break;
 				}
 				if (count > 0 && count < 8)
-					spEllipse3D(PIXEL(x,y,z).x,PIXEL(x,y,z).y,PIXEL(x,y,z).z,RESOLUTION/8,RESOLUTION/8,54321);
+					spEllipse3D(PIXEL(x,y,z).x+RESOLUTION/2,PIXEL(x,y,z).y+RESOLUTION/2,PIXEL(x,y,z).z+RESOLUTION/2,RESOLUTION/8,RESOLUTION/8,54321);
 			}	spSetBlending(SP_ONE);
 	int i;
 	printf("----- Draw these count so often:\n");
@@ -261,7 +271,7 @@ void draw( void )
 
 int calc( Uint32 steps )
 {
-	rotation += steps*8;
+	rotation += steps*32;
 	if ( spGetInput()->button[SP_BUTTON_START] )
 		return 1;
 	return 0;
