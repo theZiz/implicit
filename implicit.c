@@ -216,6 +216,8 @@ void draw( void )
 			}
 	spIdentity();
 	//spSetBlending(spFloatToFixed(0.5f));
+	int countcount[8];
+	memset(countcount,0,32);
 	for (x = 0; x < size-1; x++)
 		for (y = 0; y < size-1; y++)
 			for (z = 0; z < size-1; z++)
@@ -239,16 +241,21 @@ void draw( void )
 				position[6] = PIXEL(x+1,y+1,z+1); //back right bottom
 				position[7] = PIXEL(x  ,y+1,z+1); //back left top
 				int count = count_in(points);
+				countcount[count]++;
 				switch (count)
 				{
 					case 1: draw_one(points,position,get_the_one(points),0); break;
 					case 7: draw_one(points,position,get_the_none(points),1); break;
 				}
 				if (count > 0 && count < 8)
-				{
 					spEllipse3D(PIXEL(x,y,z).x,PIXEL(x,y,z).y,PIXEL(x,y,z).z,RESOLUTION/8,RESOLUTION/8,54321);
-				}
 			}	spSetBlending(SP_ONE);
+	int i;
+	printf("----- Draw these count so often:\n");
+	for (i = 0; i < 8; i++)
+	{
+		printf("%i: %i\n",i,countcount[i]);
+	}
 	spFlip();
 }
 
