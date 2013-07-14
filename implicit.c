@@ -27,6 +27,10 @@
 SDL_Surface* screen;
 Sint32 rotation;
 Sint32* raster;
+typedef struct {
+	Sint32 x,y,z;
+} tPoint;
+tPoint* rasterGrid;
 
 Sint32 sphere(Sint32 x,Sint32 y,Sint32 z)
 {
@@ -72,6 +76,87 @@ Sint32 function_with_modelview(Sint32* model,Sint32 (*function)(Sint32 x,Sint32 
 }
 
 #define FUNCTION ellipse
+#define VALUE(x,y,z) raster[(x)+(y)*size+(z)*size*size]
+#define PIXEL(x,y,z) rasterGrid[(x)+(y)*size+(z)*size*size]
+
+int count_in(Sint32* points)
+{
+	int i;
+	int result = 0;
+	for (i = 0; i < 8; i++)
+		if (points[i] <= 0)
+			result++;
+	return result;
+}
+
+int get_the_one(Sint32* points)
+{
+	int i;
+	int result = 0;
+	for (i = 0; i < 8; i++)
+		if (points[i] <= 0)
+			return i;
+}
+
+void draw_one(Sint32* point,tPoint* position,int the_one)
+{
+	int edge[3];
+	switch (the_one)
+	{
+		case 0:
+			edge[0] = 1;
+			edge[1] = 4;
+			edge[2] = 3;
+			break;
+		case 1:
+			edge[0] = 0;
+			edge[1] = 2;
+			edge[2] = 5;
+			break;
+		case 2:
+			edge[0] = 1;
+			edge[1] = 3;
+			edge[2] = 6;
+			break;
+		case 3:
+			edge[0] = 0;
+			edge[1] = 7;
+			edge[2] = 2;
+			break;
+		case 4:
+			edge[0] = 0;
+			edge[1] = 5;
+			edge[2] = 7;
+			break;
+		case 5:
+			edge[0] = 1;
+			edge[1] = 6;
+			edge[2] = 4;
+			break;
+		case 6:
+			edge[0] = 2;
+			edge[1] = 7;
+			edge[2] = 5;
+			break;
+		case 7:
+			edge[0] = 3;
+			edge[1] = 4;
+			edge[2] = 6;
+			break;
+	}
+	tPoint triangle[3];
+	int i;
+	for (i = 0; i < 3; i++)
+	{
+		Sint32 distance = point[edge[i]]-point[the_one];
+		triangle[i].x = spDiv(spMul(position[the_one].x,-point[the_one]) + spMul(position[edge[i]].x,point[edge[i]]),distance);
+		triangle[i].y = spDiv(spMul(position[the_one].y,-point[the_one]) + spMul(position[edge[i]].y,point[edge[i]]),distance);
+		triangle[i].z = spDiv(spMul(position[the_one].z,-point[the_one]) + spMul(position[edge[i]].z,point[edge[i]]),distance);
+	}
+	spTriangle3D(triangle[0].x,triangle[0].y,triangle[0].z,
+	             triangle[1].x,triangle[1].y,triangle[1].z,
+	             triangle[2].x,triangle[2].y,triangle[2].z,65535);
+}
 
 void draw( void )
 {
@@ -89,9 +174,8 @@ void draw( void )
 	spRotateY(rotation/2);
 	spRotateZ(rotation/4);
 	
-	int size = (MAX-MIN)/RESOLUTION;
+	int size = (MAX-MIN)/RESOLUTION+1;
 	
-	//Marching cubes!
 	Sint32 x,y,z;
 	for (x = 0; x < size; x++)
 		for (y = 0; y < size; y++)
@@ -100,7 +184,10 @@ void draw( void )
 				Sint32 X = MIN+x*RESOLUTION;
 				Sint32 Y = MIN+y*RESOLUTION;
 				Sint32 Z = MIN+z*RESOLUTION+zShift;
-				raster[x+y*size+z*size*size] = function_with_modelview(spGetMatrix(),FUNCTION,X,Y,Z);
+				VALUE(x,y,z) = function_with_modelview(spGetMatrix(),FUNCTION,X,Y,Z);
+				PIXEL(x,y,z).x = X;
+				PIXEL(x,y,z).y = Y;
+				PIXEL(x,y,z).z = Z;
 				Z-=zShift;
 				Sint32 value = FUNCTION(X,Y,Z);
 				if (value <= 0)
@@ -109,18 +196,42 @@ void draw( void )
 					if (h > 255)
 						h = 255;
 					h = 255-h;
-					spEllipse3D(X,Y,Z,RESOLUTION/2,RESOLUTION/2,spGetFastRGB(0,h,0));
+					//spEllipse3D(X,Y,Z,RESOLUTION/2,RESOLUTION/2,spGetFastRGB(0,h,0));
 				}
 			}
 	spIdentity();
-	spSetBlending(spFloatToFixed(0.5f));
-	for (x = 0; x < size; x++)
-		for (y = 0; y < size; y++)
-			for (z = 0; z < size; z++)
+	//spSetBlending(spFloatToFixed(0.5f));
+	for (x = 0; x < size-1; x++)
+		for (y = 0; y < size-1; y++)
+			for (z = 0; z < size-1; z++)
 			{
-				if (raster[x+y*size+z*size*size] <= 0)
+				Sint32 points[8];
+				tPoint position[8];
+				points[0] = VALUE(x  ,y  ,z  ); //front left top
+				points[1] = VALUE(x+1,y  ,z  ); //front right top
+				points[2] = VALUE(x+1,y+1,z  ); //front right bottom
+				points[3] = VALUE(x  ,y+1,z  ); //front left top
+				points[4] = VALUE(x  ,y  ,z+1); //back left top
+				points[5] = VALUE(x+1,y  ,z+1); //back right top
+				points[6] = VALUE(x+1,y+1,z+1); //back right bottom
+				points[7] = VALUE(x  ,y+1,z+1); //back left top
+				position[0] = PIXEL(x  ,y  ,z  ); //front left top
+				position[1] = PIXEL(x+1,y  ,z  ); //front right top
+				position[2] = PIXEL(x+1,y+1,z  ); //front right bottom
+				position[3] = PIXEL(x  ,y+1,z  ); //front left top
+				position[4] = PIXEL(x  ,y  ,z+1); //back left top
+				position[5] = PIXEL(x+1,y  ,z+1); //back right top
+				position[6] = PIXEL(x+1,y+1,z+1); //back right bottom
+				position[7] = PIXEL(x  ,y+1,z+1); //back left top
+				int count = count_in(points);
+				switch (count)
 				{
-					Sint32 h = spFixedToInt(-raster[x+y*size+z*size*size] * 256);
+					case 1: draw_one(points,position,get_the_one(points)); break;
+					
+				}
+				/*if (VALUE(x,y,z) <= 0)
+				{
+					Sint32 h = spFixedToInt(-VALUE(x,y,z) * 256);
 					if (h > 255)
 						h = 255;
 					h = 255-h;
@@ -128,7 +239,7 @@ void draw( void )
 					Sint32 Y = MIN+y*RESOLUTION;
 					Sint32 Z = MIN+z*RESOLUTION+zShift;
 					spEllipse3D(X,Y,Z,RESOLUTION/2,RESOLUTION/2,spGetFastRGB(h,0,0));
-				}
+				}*/
 			}	spSetBlending(SP_ONE);
 	spFlip();
 }
@@ -158,10 +269,13 @@ int main(int argc, char **argv)
 	screen = spCreateDefaultWindow();
 	resize(screen->w,screen->h);
 	
-	int size = (MAX-MIN)/RESOLUTION;
+	int size = (MAX-MIN)/RESOLUTION+1;
 	raster = (Sint32*) malloc(sizeof(Sint32)*size*size*size);
+	rasterGrid = (tPoint*) malloc(sizeof(tPoint)*size*size*size);
+	spSetLight(1);
 	spLoop( draw, calc, 10, resize, NULL);
 	free(raster);
+	free(rasterGrid);
 	spQuitCore();
 	return 0;
 }
