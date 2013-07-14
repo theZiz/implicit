@@ -26,6 +26,7 @@
 
 SDL_Surface* screen;
 Sint32 rotation;
+Sint32* raster;
 
 Sint32 sphere(Sint32 x,Sint32 y,Sint32 z)
 {
@@ -85,39 +86,31 @@ void draw( void )
 	spRotateX(rotation);
 	spRotateY(rotation/2);
 	spRotateZ(rotation/4);
+
+	int size = (MAX-MIN)/RESOLUTION;
 	
 	//Marching cubes!
 	Sint32 x,y,z;
 	//spSetBlending(spFloatToFixed(0.5f));
-	for (x = MIN; x <= MAX; x+=RESOLUTION)
-		for (y = MIN; y <= MAX; y+=RESOLUTION)
-			for (z = MIN; z <= MAX; z+=RESOLUTION)
-			{
-				Sint32 value = FUNCTION(x,y,z);
-				if (value <= 0)
-				{
-					Sint32 h = spFixedToInt(-value * 256);
-					if (h > 255)
-						h = 255;
-					h = 255-h;
-					spEllipse3D(x,y,z,RESOLUTION/2,RESOLUTION/2,spGetFastRGB(h,0,0));
-				}
-			}
-	Sint32 matrix[16];
-	memcpy( matrix, spGetMatrix(), 16 * sizeof( Sint32 ) ); //Saving the matrix
+	for (x = 0; x < size; x++)
+		for (y = 0; y < size; y++)
+			for (z = 0; z < size; z++)
+				raster[x+y*size+z*size*size]=function_with_modelview(spGetMatrix(),FUNCTION,x,y,z);
 	spIdentity();
-	for (x = MIN; x <= MAX; x+=RESOLUTION)
-		for (y = MIN; y <= MAX; y+=RESOLUTION)
-			for (z = MIN+Z; z <= MAX+Z; z+=RESOLUTION)
+	for (x = 0; x < size; x++)
+		for (y = 0; y < size; y++)
+			for (z = 0; z < size; z++)
 			{
-				Sint32 value = function_with_modelview(matrix,FUNCTION,x,y,z);
-				if (value <= 0)
+				if (raster[x+y*size+z*size*size] <= 0)
 				{
-					Sint32 h = spFixedToInt(-value * 256);
+					Sint32 h = spFixedToInt(-raster[x+y*size+z*size*size] * 256);
 					if (h > 255)
 						h = 255;
 					h = 255-h;
-					spEllipse3D(x,y,z,RESOLUTION/2,RESOLUTION/2,spGetFastRGB(0,h,0));
+					Sint32 X = MIN+x*RESOLUTION;
+					Sint32 Y = MIN+y*RESOLUTION;
+					Sint32 Z = MIN+z*RESOLUTION;
+					spEllipse3D(X,Y,Z,RESOLUTION/2,RESOLUTION/2,spGetFastRGB(0,h,0));
 				}
 			}	spSetBlending(SP_ONE);
 	spFlip();
@@ -148,8 +141,10 @@ int main(int argc, char **argv)
 	screen = spCreateDefaultWindow();
 	resize(screen->w,screen->h);
 	
+	int size = (MAX-MIN)/RESOLUTION;
+	raster = (Sint32*) malloc(sizeof(Sint32)*size*size*size);
 	spLoop( draw, calc, 10, resize, NULL);
-	
+	free(raster);
 	spQuitCore();
 	return 0;
 }
