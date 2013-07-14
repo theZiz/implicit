@@ -32,9 +32,22 @@ Sint32 sphere(Sint32 x,Sint32 y,Sint32 z)
 	return spSqrt(spSquare(x)+spSquare(y)+spSquare(z))-SP_ONE;
 }
 
+Sint32 ellipse(Sint32 x,Sint32 y,Sint32 z)
+{
+	return spSqrt(spSquare(x/2)+spSquare(y*2)+spSquare(z))-SP_ONE;
+}
+
 Sint32 cube(Sint32 x,Sint32 y,Sint32 z)
 {
 	return spMax(abs(x),spMax(abs(y),abs(z)))-SP_ONE;
+}
+
+Sint32 function_with_modelview(Sint32* model,Sint32 (*function)(Sint32 x,Sint32 y,Sint32 z),Sint32 x,Sint32 y,Sint32 z)
+{
+	x = x - model[12];
+	y = y - model[13];
+	z = z - model[14];
+	return function(x,y,z);
 }
 
 void draw( void )
@@ -44,19 +57,25 @@ void draw( void )
 	spClearTarget( 12345 );
 	spSetZSet(0);
 	spSetZTest(0);
-	spTranslate(0,0,spFloatToFixed(-3.0f));
+	Sint32 Z = spFloatToFixed(-3.0f);
+	spTranslate(0,0,Z);
 	
 	spRotateX(rotation);
 	spRotateY(rotation/2);
 	spRotateZ(rotation/4);
+	
+	Sint32 matrix[16];
+	memcpy( matrix, spGetMatrix(), 16 * sizeof( Sint32 ) ); //Saving the matrix
+	spIdentity();
+	
 	//Marching cubes!
 	Sint32 x,y,z;
 	spSetBlending(spFloatToFixed(0.5f));
 	for (x = MIN; x <= MAX; x+=RESOLUTION)
 		for (y = MIN; y <= MAX; y+=RESOLUTION)
-			for (z = MIN; z <= MAX; z+=RESOLUTION)
+			for (z = MIN+Z; z <= MAX+Z; z+=RESOLUTION)
 			{
-				Sint32 value = sphere(x,y,z);
+				Sint32 value = function_with_modelview(matrix,ellipse,x,y,z);
 				if (value <= 0)
 				{
 					Sint32 h = spFixedToInt(-value * 256);
