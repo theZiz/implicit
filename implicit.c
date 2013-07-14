@@ -98,7 +98,16 @@ int get_the_one(Sint32* points)
 			return i;
 }
 
-void draw_one(Sint32* point,tPoint* position,int the_one)
+int get_the_none(Sint32* points)
+{
+	int i;
+	int result = 0;
+	for (i = 0; i < 8; i++)
+		if (points[i] > 0)
+			return i;
+}
+
+void draw_one(Sint32* point,tPoint* position,int the_one,int backwards)
 {
 	int edge[3];
 	switch (the_one)
@@ -143,6 +152,12 @@ void draw_one(Sint32* point,tPoint* position,int the_one)
 			edge[1] = 4;
 			edge[2] = 6;
 			break;
+	}
+	if (backwards)
+	{
+		int left = edge[0];
+		edge[0] = edge[2];
+		edge[2] = left;
 	}
 	tPoint triangle[3];
 	int i;
@@ -226,27 +241,20 @@ void draw( void )
 				int count = count_in(points);
 				switch (count)
 				{
-					case 1: draw_one(points,position,get_the_one(points)); break;
-					
+					case 1: draw_one(points,position,get_the_one(points),0); break;
+					case 7: draw_one(points,position,get_the_none(points),1); break;
 				}
-				/*if (VALUE(x,y,z) <= 0)
+				if (count > 0 && count < 8)
 				{
-					Sint32 h = spFixedToInt(-VALUE(x,y,z) * 256);
-					if (h > 255)
-						h = 255;
-					h = 255-h;
-					Sint32 X = MIN+x*RESOLUTION;
-					Sint32 Y = MIN+y*RESOLUTION;
-					Sint32 Z = MIN+z*RESOLUTION+zShift;
-					spEllipse3D(X,Y,Z,RESOLUTION/2,RESOLUTION/2,spGetFastRGB(h,0,0));
-				}*/
+					spEllipse3D(PIXEL(x,y,z).x,PIXEL(x,y,z).y,PIXEL(x,y,z).z,RESOLUTION/8,RESOLUTION/8,54321);
+				}
 			}	spSetBlending(SP_ONE);
 	spFlip();
 }
 
 int calc( Uint32 steps )
 {
-	rotation += steps*32;
+	rotation += steps*8;
 	if ( spGetInput()->button[SP_BUTTON_START] )
 		return 1;
 	return 0;
