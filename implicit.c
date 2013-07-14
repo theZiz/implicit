@@ -21,8 +21,8 @@
 #include <sparrow3d.h>
 
 #define RESOLUTION spFloatToFixed(0.1f)
-#define MIN spFloatToFixed(-2.0f)
-#define MAX spFloatToFixed( 2.0f)
+#define MIN spFloatToFixed(-2.5f)
+#define MAX spFloatToFixed( 2.5f)
 
 SDL_Surface* screen;
 Sint32 rotation;
@@ -80,23 +80,40 @@ void draw( void )
 	spClearTarget( 12345 );
 	//spSetZSet(0);
 	//spSetZTest(0);
-	Sint32 Z = spFloatToFixed(-3.0f);
-	spTranslate(0,0,Z);
+	
+	Sint32 zShift = spFloatToFixed(-3.0f);
+
+	spTranslate(0,0,zShift);
 	
 	spRotateX(rotation);
 	spRotateY(rotation/2);
 	spRotateZ(rotation/4);
-
+	
 	int size = (MAX-MIN)/RESOLUTION;
 	
 	//Marching cubes!
 	Sint32 x,y,z;
-	//spSetBlending(spFloatToFixed(0.5f));
 	for (x = 0; x < size; x++)
 		for (y = 0; y < size; y++)
 			for (z = 0; z < size; z++)
-				raster[x+y*size+z*size*size]=function_with_modelview(spGetMatrix(),FUNCTION,x,y,z);
+			{
+				Sint32 X = MIN+x*RESOLUTION;
+				Sint32 Y = MIN+y*RESOLUTION;
+				Sint32 Z = MIN+z*RESOLUTION+zShift;
+				raster[x+y*size+z*size*size] = function_with_modelview(spGetMatrix(),FUNCTION,X,Y,Z);
+				Z-=zShift;
+				Sint32 value = FUNCTION(X,Y,Z);
+				if (value <= 0)
+				{
+					Sint32 h = spFixedToInt(-value * 256);
+					if (h > 255)
+						h = 255;
+					h = 255-h;
+					spEllipse3D(X,Y,Z,RESOLUTION/2,RESOLUTION/2,spGetFastRGB(0,h,0));
+				}
+			}
 	spIdentity();
+	spSetBlending(spFloatToFixed(0.5f));
 	for (x = 0; x < size; x++)
 		for (y = 0; y < size; y++)
 			for (z = 0; z < size; z++)
@@ -109,8 +126,8 @@ void draw( void )
 					h = 255-h;
 					Sint32 X = MIN+x*RESOLUTION;
 					Sint32 Y = MIN+y*RESOLUTION;
-					Sint32 Z = MIN+z*RESOLUTION;
-					spEllipse3D(X,Y,Z,RESOLUTION/2,RESOLUTION/2,spGetFastRGB(0,h,0));
+					Sint32 Z = MIN+z*RESOLUTION+zShift;
+					spEllipse3D(X,Y,Z,RESOLUTION/2,RESOLUTION/2,spGetFastRGB(h,0,0));
 				}
 			}	spSetBlending(SP_ONE);
 	spFlip();
