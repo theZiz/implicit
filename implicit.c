@@ -55,28 +55,30 @@ Sint32 function_with_modelview(Sint32* model,Sint32 (*function)(Sint32 x,Sint32 
 	           - spMul(model[ 0],spMul(model[ 9],model[ 6]));*/
 	Sint32 det = SP_ONE;
 	Sint32 invers[9];
-	invers[0] = spMul(model[ 5],model[10]) - spMul(model[ 9],model[ 6]);
-	invers[1] = spMul(model[ 9],model[ 2]) - spMul(model[ 1],model[10]);
-	invers[2] = spMul(model[ 1],model[ 6]) - spMul(model[ 5],model[ 2]);
-	invers[3] = spMul(model[ 8],model[ 6]) - spMul(model[ 4],model[10]);
-	invers[4] = spMul(model[ 0],model[10]) - spMul(model[ 8],model[ 2]);
-	invers[5] = spMul(model[ 4],model[ 2]) - spMul(model[ 0],model[ 6]);
-	invers[6] = spMul(model[ 4],model[ 9]) - spMul(model[ 8],model[ 5]);
-	invers[7] = spMul(model[ 8],model[ 1]) - spMul(model[ 0],model[ 9]);
-	invers[8] = spMul(model[ 0],model[ 5]) - spMul(model[ 4],model[ 1]);
-	Sint32 nx = spMul(invers[0],x) + spMul(invers[3],y) + spMul(invers[6],z);
-	Sint32 ny = spMul(invers[1],x) + spMul(invers[4],y) + spMul(invers[7],z);
-	Sint32 nz = spMul(invers[2],x) + spMul(invers[5],y) + spMul(invers[8],z);
+	invers[0] = spMulHigh(model[ 5],model[10]) - spMulHigh(model[ 9],model[ 6]);
+	invers[1] = spMulHigh(model[ 9],model[ 2]) - spMulHigh(model[ 1],model[10]);
+	invers[2] = spMulHigh(model[ 1],model[ 6]) - spMulHigh(model[ 5],model[ 2]);
+	invers[3] = spMulHigh(model[ 8],model[ 6]) - spMulHigh(model[ 4],model[10]);
+	invers[4] = spMulHigh(model[ 0],model[10]) - spMulHigh(model[ 8],model[ 2]);
+	invers[5] = spMulHigh(model[ 4],model[ 2]) - spMulHigh(model[ 0],model[ 6]);
+	invers[6] = spMulHigh(model[ 4],model[ 9]) - spMulHigh(model[ 8],model[ 5]);
+	invers[7] = spMulHigh(model[ 8],model[ 1]) - spMulHigh(model[ 0],model[ 9]);
+	invers[8] = spMulHigh(model[ 0],model[ 5]) - spMulHigh(model[ 4],model[ 1]);
+	Sint32 nx = spMulHigh(invers[0],x) + spMulHigh(invers[3],y) + spMulHigh(invers[6],z);
+	Sint32 ny = spMulHigh(invers[1],x) + spMulHigh(invers[4],y) + spMulHigh(invers[7],z);
+	Sint32 nz = spMulHigh(invers[2],x) + spMulHigh(invers[5],y) + spMulHigh(invers[8],z);
 	return function(nx,ny,nz);
 }
+
+#define FUNCTION ellipse
 
 void draw( void )
 {
 	spResetZBuffer();
 	spIdentity();
 	spClearTarget( 12345 );
-	spSetZSet(0);
-	spSetZTest(0);
+	//spSetZSet(0);
+	//spSetZTest(0);
 	Sint32 Z = spFloatToFixed(-3.0f);
 	spTranslate(0,0,Z);
 	
@@ -86,12 +88,12 @@ void draw( void )
 	
 	//Marching cubes!
 	Sint32 x,y,z;
-	spSetBlending(spFloatToFixed(0.5f));
+	//spSetBlending(spFloatToFixed(0.5f));
 	for (x = MIN; x <= MAX; x+=RESOLUTION)
 		for (y = MIN; y <= MAX; y+=RESOLUTION)
 			for (z = MIN; z <= MAX; z+=RESOLUTION)
 			{
-				Sint32 value = ellipse(x,y,z);
+				Sint32 value = FUNCTION(x,y,z);
 				if (value <= 0)
 				{
 					Sint32 h = spFixedToInt(-value * 256);
@@ -108,7 +110,7 @@ void draw( void )
 		for (y = MIN; y <= MAX; y+=RESOLUTION)
 			for (z = MIN+Z; z <= MAX+Z; z+=RESOLUTION)
 			{
-				Sint32 value = function_with_modelview(matrix,ellipse,x,y,z);
+				Sint32 value = function_with_modelview(matrix,FUNCTION,x,y,z);
 				if (value <= 0)
 				{
 					Sint32 h = spFixedToInt(-value * 256);
