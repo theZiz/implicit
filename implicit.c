@@ -20,9 +20,9 @@
 
 #include <sparrow3d.h>
 
-#define RESOLUTION spFloatToFixed(0.1f)
-#define MIN spFloatToFixed(-2.5f)
-#define MAX spFloatToFixed( 2.5f)
+#define RESOLUTION spFloatToFixed(0.2f)
+#define MIN spFloatToFixed(-2.0f)
+#define MAX spFloatToFixed( 2.0f)
 
 SDL_Surface* screen;
 Sint32 rotation;
@@ -109,9 +109,8 @@ int get_the_none(Sint32* points)
 			return i;
 }
 
-void draw_one(Sint32* point,tPoint* position,int the_one,int backwards)
+void get_edges(int *edge,int the_one)
 {
-	int edge[3];
 	switch (the_one)
 	{
 		case 0:
@@ -155,6 +154,12 @@ void draw_one(Sint32* point,tPoint* position,int the_one,int backwards)
 			edge[2] = 4;
 			break;
 	}
+}
+
+void draw_one(Sint32* point,tPoint* position,int the_one,int backwards)
+{
+	int edge[3];
+	get_edges(edge,the_one);
 	if (backwards)
 	{
 		int left = edge[0];
@@ -166,13 +171,83 @@ void draw_one(Sint32* point,tPoint* position,int the_one,int backwards)
 	for (i = 0; i < 3; i++)
 	{
 		Sint32 distance = point[edge[i]]-point[the_one];
-		triangle[i].x = spDiv(spMul(position[the_one].x,-point[the_one]) + spMul(position[edge[i]].x,point[edge[i]]),distance);
-		triangle[i].y = spDiv(spMul(position[the_one].y,-point[the_one]) + spMul(position[edge[i]].y,point[edge[i]]),distance);
-		triangle[i].z = spDiv(spMul(position[the_one].z,-point[the_one]) + spMul(position[edge[i]].z,point[edge[i]]),distance);
+		if (distance == 0)
+			return;
+		Sint32 factor = spDiv(-point[the_one],distance);
+		triangle[i].x = spMul(position[the_one].x,factor) + spMul(position[edge[i]].x,SP_ONE-factor);
+		triangle[i].y = spMul(position[the_one].y,factor) + spMul(position[edge[i]].y,SP_ONE-factor);
+		triangle[i].z = spMul(position[the_one].z,factor) + spMul(position[edge[i]].z,SP_ONE-factor);
 	}
 	spTriangle3D(triangle[0].x,triangle[0].y,triangle[0].z,
 	             triangle[1].x,triangle[1].y,triangle[1].z,
 	             triangle[2].x,triangle[2].y,triangle[2].z,65535);
+}
+
+const int x_plus[8] = {0,1,1,0,0,1,1,0};
+const int y_plus[8] = {0,0,1,1,0,0,1,1};
+const int z_plus[8] = {0,0,0,0,1,1,1,1};
+const int nr_lookup[2][2][2] = {{{0,4},{3,7}},{{1,5},{2,6}}};
+
+int get_distance(int one,int two)
+{
+	int count;
+	if (x_plus[one] != x_plus[two])
+		count++;
+	if (y_plus[one] != y_plus[two])
+		count++;
+	if (z_plus[one] != z_plus[two])
+		count++;
+	return count;
+}
+
+void draw_two_near(Sint32* point,tPoint* position,int one,int two,int backwards)
+{
+	int edge_one[3];
+	get_edges(edge_one,one);
+	int edge_two[3];
+	get_edges(edge_two,two);
+}
+
+void draw_two(Sint32* point,tPoint* position,int backwards)
+{
+	//Finding the two:
+	int i;
+	int one = -1;
+	int two;
+	if (!backwards)
+	{
+		for (i = 0; i < 8; i++)
+			if (point[i] <= 0)
+			{
+				if (one == -1)
+					one = i;
+				else
+					two = i;
+			}
+	}
+	else
+	{
+		for (i = 0; i < 8; i++)
+			if (point[i] > 0)
+			{
+				if (one == -1)
+					one = i;
+				else
+					two = i;
+			}
+	}
+	//Getting the distance
+	int distance = get_distance(one,two);
+	switch (distance)
+	{
+		case 2: case 3:
+			draw_one(point,position,one,backwards);
+			draw_one(point,position,two,backwards);
+			break;
+		case 1:
+			draw_two_near(point,position,one,two,backwards);
+			break;
+	}
 }
 
 void draw( void )
@@ -183,7 +258,7 @@ void draw( void )
 	//spSetZSet(0);
 	//spSetZTest(0);
 	
-	Sint32 zShift = spFloatToFixed(-3.0f);
+	Sint32 zShift = spFloatToFixed(-4.0f);
 
 
 	#ifdef FIRST_TRANSFORMATION
@@ -255,6 +330,8 @@ void draw( void )
 				switch (count)
 				{
 					case 1: draw_one(points,position,get_the_one(points),0); break;
+					case 2: draw_two(points,position,0); break;
+					case 6: draw_two(points,position,1); break;
 					case 7: draw_one(points,position,get_the_none(points),1); break;
 				}
 				if (count > 0 && count < 8)
@@ -286,7 +363,7 @@ void resize(Uint16 w,Uint16 h)
 
 int main(int argc, char **argv)
 {
-	spSetDefaultWindowSize( 800, 480 );
+	//spSetDefaultWindowSize( 800, 480 );
 	spInitCore();
 	spSetAffineTextureHack(0); //We don't need it :)
 
