@@ -20,7 +20,7 @@
 
 #include <sparrow3d.h>
 
-#define RESOLUTION spFloatToFixed(0.05f)
+#define RESOLUTION spFloatToFixed(0.1f)
 #define MIN spFloatToFixed(-2.0f)
 #define MAX spFloatToFixed( 2.0f)
 
@@ -304,7 +304,7 @@ void draw( void )
 {
 	spResetZBuffer();
 	spIdentity();
-	spClearTarget( 12345 );
+	spClearTarget( 0 );
 	//spSetZSet(0);
 	//spSetZTest(0);
 	
@@ -385,7 +385,7 @@ void draw( void )
 					case 7: draw_one(points,position,get_the_none(points),1); break;
 				}
 				if (count > 0 && count < 8)
-					spEllipse3D(PIXEL(x,y,z).x+RESOLUTION/2,PIXEL(x,y,z).y+RESOLUTION/2,PIXEL(x,y,z).z+RESOLUTION/2,RESOLUTION/8,RESOLUTION/8,54321);
+					spEllipse3D(PIXEL(x,y,z).x+RESOLUTION/2,PIXEL(x,y,z).y+RESOLUTION/2,PIXEL(x,y,z).z+RESOLUTION/2,RESOLUTION/4,RESOLUTION/4,65535);
 			}	spSetBlending(SP_ONE);
 	int i;
 	printf("----- Draw these count so often:\n");
