@@ -20,7 +20,7 @@
 
 #include <sparrow3d.h>
 
-#define RESOLUTION spFloatToFixed(0.2f)
+#define RESOLUTION spFloatToFixed(0.05f)
 #define MIN spFloatToFixed(-2.0f)
 #define MAX spFloatToFixed( 2.0f)
 
@@ -180,7 +180,7 @@ void draw_one(Sint32* point,tPoint* position,int the_one,int backwards)
 	}
 	spTriangle3D(triangle[0].x,triangle[0].y,triangle[0].z,
 	             triangle[1].x,triangle[1].y,triangle[1].z,
-	             triangle[2].x,triangle[2].y,triangle[2].z,65535);
+	             triangle[2].x,triangle[2].y,triangle[2].z,spGetRGB(0,255,0));
 }
 
 const int x_plus[8] = {0,1,1,0,0,1,1,0};
@@ -255,7 +255,7 @@ void draw_two_near(Sint32* point,tPoint* position,int one,int two,int backwards)
 	spQuad3D(quad[0].x,quad[0].y,quad[0].z,
 	         quad[1].x,quad[1].y,quad[1].z,
 	         quad[2].x,quad[2].y,quad[2].z,
-	         quad[3].x,quad[3].y,quad[3].z,65535);
+	         quad[3].x,quad[3].y,quad[3].z,spGetRGB(255,0,0));
 }
 
 void draw_two(Sint32* point,tPoint* position,int backwards)
@@ -398,7 +398,7 @@ void draw( void )
 
 int calc( Uint32 steps )
 {
-	rotation += steps*32;
+	rotation += steps*4;
 	if ( spGetInput()->button[SP_BUTTON_START] )
 		return 1;
 	return 0;
