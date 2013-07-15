@@ -200,12 +200,62 @@ int get_distance(int one,int two)
 	return count;
 }
 
+int add_point(tPoint* point,tPoint in,tPoint out,Sint32 in_value,Sint32 out_value)
+{
+	Sint32 distance = out_value-in_value;
+	if (distance == 0)
+		return 1;
+	Sint32 factor = spDiv(-in_value,distance);
+	point->x = spMul(in.x,factor) + spMul(out.x,SP_ONE-factor);
+	point->y = spMul(in.y,factor) + spMul(out.y,SP_ONE-factor);
+	point->z = spMul(in.z,factor) + spMul(out.z,SP_ONE-factor);
+	return 0;
+}
+
 void draw_two_near(Sint32* point,tPoint* position,int one,int two,int backwards)
 {
 	int edge_one[3];
 	get_edges(edge_one,one);
 	int edge_two[3];
 	get_edges(edge_two,two);
+	//Searching one in edge_one & two in edge_two
+	int pos_one;
+	for (pos_one = 0; pos_one < 3; pos_one++)
+		if (edge_two[pos_one] == one)
+			break;
+	int pos_two;
+	for (pos_two = 0; pos_two < 3; pos_two++)
+		if (edge_one[pos_two] == two)
+			break;
+	tPoint quad[4];
+	//0
+	int pos = pos_two+1;
+	if (pos >= 3)
+		pos = 0;
+	if (add_point(&(quad[0]),position[one],position[edge_one[pos]],point[one],point[edge_one[pos]]))
+		return;
+	//1
+	pos++;
+	if (pos >= 3)
+		pos = 0;
+	if (add_point(&(quad[1]),position[one],position[edge_one[pos]],point[one],point[edge_one[pos]]))
+		return;
+	//2
+	pos = pos_one+1;
+	if (pos >= 3)
+		pos = 0;
+	if (add_point(&(quad[2]),position[two],position[edge_two[pos]],point[two],point[edge_two[pos]]))
+		return;
+	//3
+	pos++;
+	if (pos >= 3)
+		pos = 0;
+	if (add_point(&(quad[3]),position[two],position[edge_two[pos]],point[two],point[edge_two[pos]]))
+		return;
+	spQuad3D(quad[0].x,quad[0].y,quad[0].z,
+	         quad[1].x,quad[1].y,quad[1].z,
+	         quad[2].x,quad[2].y,quad[2].z,
+	         quad[3].x,quad[3].y,quad[3].z,65535);
 }
 
 void draw_two(Sint32* point,tPoint* position,int backwards)
