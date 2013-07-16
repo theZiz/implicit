@@ -23,6 +23,7 @@
 #define RESOLUTION spFloatToFixed(0.1f)
 #define MIN spFloatToFixed(-2.0f)
 #define MAX spFloatToFixed( 2.0f)
+#define COLOR spGetRGB(255,255,0)
 
 SDL_Surface* screen;
 Sint32 rotation;
@@ -156,6 +157,20 @@ void get_edges(int *edge,int the_one)
 	}
 }
 
+int add_point(tPoint* point,tPoint in,tPoint out,Sint32 in_value,Sint32 out_value)
+{
+	Sint32 distance = out_value-in_value;
+	if (distance == 0)
+		return 1;
+	Sint32 factor = spDiv(-in_value,distance);
+	if (factor < 0 || factor > SP_ONE)
+		printf("%f\n",spFixedToFloat(factor));
+	point->x = spMul(in.x,factor) + spMul(out.x,SP_ONE-factor);
+	point->y = spMul(in.y,factor) + spMul(out.y,SP_ONE-factor);
+	point->z = spMul(in.z,factor) + spMul(out.z,SP_ONE-factor);
+	return 0;
+}
+
 void draw_one(Sint32* point,tPoint* position,int the_one,int backwards)
 {
 	int edge[3];
@@ -169,18 +184,11 @@ void draw_one(Sint32* point,tPoint* position,int the_one,int backwards)
 	tPoint triangle[3];
 	int i;
 	for (i = 0; i < 3; i++)
-	{
-		Sint32 distance = point[edge[i]]-point[the_one];
-		if (distance == 0)
+		if (add_point(&(triangle[i]),position[the_one],position[edge[i]],point[the_one],point[edge[i]]))
 			return;
-		Sint32 factor = spDiv(-point[the_one],distance);
-		triangle[i].x = spMul(position[the_one].x,factor) + spMul(position[edge[i]].x,SP_ONE-factor);
-		triangle[i].y = spMul(position[the_one].y,factor) + spMul(position[edge[i]].y,SP_ONE-factor);
-		triangle[i].z = spMul(position[the_one].z,factor) + spMul(position[edge[i]].z,SP_ONE-factor);
-	}
 	spTriangle3D(triangle[0].x,triangle[0].y,triangle[0].z,
 	             triangle[1].x,triangle[1].y,triangle[1].z,
-	             triangle[2].x,triangle[2].y,triangle[2].z,spGetRGB(0,255,0));
+	             triangle[2].x,triangle[2].y,triangle[2].z,COLOR);
 }
 
 const int x_plus[8] = {0,1,1,0,0,1,1,0};
@@ -198,18 +206,6 @@ int get_distance(int one,int two)
 	if (z_plus[one] != z_plus[two])
 		count++;
 	return count;
-}
-
-int add_point(tPoint* point,tPoint in,tPoint out,Sint32 in_value,Sint32 out_value)
-{
-	Sint32 distance = out_value-in_value;
-	if (distance == 0)
-		return 1;
-	Sint32 factor = spDiv(-in_value,distance);
-	point->x = spMul(in.x,factor) + spMul(out.x,SP_ONE-factor);
-	point->y = spMul(in.y,factor) + spMul(out.y,SP_ONE-factor);
-	point->z = spMul(in.z,factor) + spMul(out.z,SP_ONE-factor);
-	return 0;
 }
 
 void draw_two_near(Sint32* point,tPoint* position,int one,int two,int backwards)
@@ -255,7 +251,7 @@ void draw_two_near(Sint32* point,tPoint* position,int one,int two,int backwards)
 	spQuad3D(quad[0].x,quad[0].y,quad[0].z,
 	         quad[1].x,quad[1].y,quad[1].z,
 	         quad[2].x,quad[2].y,quad[2].z,
-	         quad[3].x,quad[3].y,quad[3].z,spGetRGB(255,0,0));
+	         quad[3].x,quad[3].y,quad[3].z,COLOR);
 }
 
 void draw_two(Sint32* point,tPoint* position,int backwards)
@@ -299,6 +295,162 @@ void draw_two(Sint32* point,tPoint* position,int backwards)
 			break;
 	}
 }
+
+void draw_three_near(Sint32* point,tPoint* position,int one,int two,int three,int backwards)
+{
+	int edge_one[3];
+	get_edges(edge_one,one);
+	int edge_two[3];
+	get_edges(edge_two,two);
+	int edge_three[3];
+	get_edges(edge_three,three);
+	//Drawing the three triangles.
+	//Seaching the points of 1 and 3:
+	int common = -1;
+	int above_one = -1;
+	int above_two = -1;
+	int above_three = -1;
+	int i,j;
+	for (i = 0; i < 3; i++)
+		for (j = 0; j < 3; j++)
+			if (edge_one[i] == edge_three[j] && edge_one[i] != two)
+			{
+				common = edge_one[i];
+				break;
+			}
+	for (i = 0; i < 3; i++)
+		if (edge_one[i] != common && edge_one[i] != two)
+		{
+			above_one = edge_one[i];
+			break;
+		}
+	for (i = 0; i < 3; i++)
+		if (edge_two[i] != one && edge_two[i] != three)
+		{
+			above_two = edge_two[i];
+			break;
+		}
+	for (i = 0; i < 3; i++)
+		if (edge_three[i] != common && edge_three[i] != two)
+		{
+			above_three = edge_three[i];
+			break;
+		}
+	tPoint triangle[3];
+	int do_not_draw = 0;
+	do_not_draw |= add_point(&(triangle[2]),position[  one],position[     common],point[  one],point[     common]);
+	do_not_draw |= add_point(&(triangle[1]),position[three],position[above_three],point[three],point[above_three]);
+	do_not_draw |= add_point(&(triangle[0]),position[three],position[     common],point[three],point[     common]);
+	if (!do_not_draw)
+		spTriangle3D(triangle[0].x,triangle[0].y,triangle[0].z,
+					 triangle[1].x,triangle[1].y,triangle[1].z,
+					 triangle[2].x,triangle[2].y,triangle[2].z,COLOR);
+	do_not_draw = 0;
+	do_not_draw |= add_point(&(triangle[2]),position[  one],position[     common],point[  one],point[     common]);
+	do_not_draw |= add_point(&(triangle[1]),position[  one],position[  above_one],point[  one],point[  above_one]);
+	do_not_draw |= add_point(&(triangle[0]),position[three],position[above_three],point[three],point[above_three]);
+	if (!do_not_draw)
+		spTriangle3D(triangle[0].x,triangle[0].y,triangle[0].z,
+					 triangle[1].x,triangle[1].y,triangle[1].z,
+					 triangle[2].x,triangle[2].y,triangle[2].z,COLOR);
+	do_not_draw = 0;
+	do_not_draw |= add_point(&(triangle[2]),position[  one],position[  above_one],point[  one],point[  above_one]);
+	do_not_draw |= add_point(&(triangle[1]),position[  two],position[  above_two],point[  two],point[  above_two]);
+	do_not_draw |= add_point(&(triangle[0]),position[three],position[above_three],point[three],point[above_three]);
+	if (!do_not_draw)
+		spTriangle3D(triangle[0].x,triangle[0].y,triangle[0].z,
+					 triangle[1].x,triangle[1].y,triangle[1].z,
+					 triangle[2].x,triangle[2].y,triangle[2].z,COLOR);
+}
+
+void draw_three(Sint32* point,tPoint* position,int backwards)
+{
+	//Finding the three:
+	int i;
+	int one = -1;
+	int two = -1;
+	int three;
+	if (!backwards)
+	{
+		for (i = 0; i < 8; i++)
+			if (point[i] <= 0)
+			{
+				if (one == -1)
+					one = i;
+				else
+				if (two == -1)
+					two = i;
+				else
+					three = i;
+			}
+	}
+	else
+	{
+		for (i = 0; i < 8; i++)
+			if (point[i] > 0)
+			{
+				if (one == -1)
+					one = i;
+				else
+				if (two == -1)
+					two = i;
+				else
+					three = i;
+			}
+	}
+	int distance12 = get_distance(one,two);	
+	int distance23 = get_distance(two,three);	
+	int distance31 = get_distance(three,one);
+	//Sort distances. Shortest first.
+	int temp;
+	if (distance12 > distance23)
+	{
+		temp = distance12;
+		distance12 = distance23;
+		distance23 = temp;
+		temp = one;
+		one = three;
+		three = temp;
+	}
+	if (distance12 > distance31)
+	{
+		temp = distance12;
+		distance12 = distance31;
+		distance31 = temp;
+		temp = two;
+		two = three;
+		three = temp;
+	}
+	if (distance23 > distance31)
+	{
+		temp = distance23;
+		distance23 = distance31;
+		distance31 = temp;
+		temp = two;
+		two = one;
+		one = temp;
+	}
+	if (distance12 == 1 && distance23 == 1 && distance31 == 2)
+	{
+		draw_three_near(point,position,one,two,three,backwards);
+	}
+	else
+	if (distance12 == 1 && distance23 == 2 && distance31 == 3)
+	{
+			draw_two_near(point,position,one,two,backwards);
+			draw_one(point,position,three,backwards);
+	}
+	else
+	if (distance12 == 2 && distance23 == 2 && distance31 == 2)
+	{
+			draw_one(point,position,one,backwards);
+			draw_one(point,position,two,backwards);
+			draw_one(point,position,three,backwards);
+	}
+	else
+		printf("This shouldn't be possible\n");
+}
+
 
 void draw( void )
 {
@@ -381,6 +533,8 @@ void draw( void )
 				{
 					case 1: draw_one(points,position,get_the_one(points),0); break;
 					case 2: draw_two(points,position,0); break;
+					case 3: draw_three(points,position,0); break;
+					case 5: draw_three(points,position,1); break;
 					case 6: draw_two(points,position,1); break;
 					case 7: draw_one(points,position,get_the_none(points),1); break;
 				}
@@ -390,9 +544,7 @@ void draw( void )
 	int i;
 	printf("----- Draw these count so often:\n");
 	for (i = 0; i < 8; i++)
-	{
 		printf("%i: %i\n",i,countcount[i]);
-	}
 	spFlip();
 }
 
