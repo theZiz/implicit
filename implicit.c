@@ -24,6 +24,11 @@
 #define MIN spFloatToFixed(-2.0f)
 #define MAX spFloatToFixed( 2.0f)
 #define COLOR spGetRGB(255,255,0)
+#define CORRECTION 0
+#define FUNCTION ellipse
+#define VALUE(x,y,z) raster[(x)+(y)*size+(z)*size*size]
+#define PIXEL(x,y,z) rasterGrid[(x)+(y)*size+(z)*size*size]
+#define FIRST_TRANSFORMATION
 
 SDL_Surface* screen;
 Sint32 rotation;
@@ -76,11 +81,28 @@ Sint32 function_with_modelview(Sint32* model,Sint32 (*function)(Sint32 x,Sint32 
 	return function(nx,ny,nz);
 }
 
-#define FUNCTION ellipse
-#define VALUE(x,y,z) raster[(x)+(y)*size+(z)*size*size]
-#define PIXEL(x,y,z) rasterGrid[(x)+(y)*size+(z)*size*size]
 
-#define FIRST_TRANSFORMATION
+void draw_spTriangle3D(Sint32 x1,Sint32 y1,Sint32 z1,
+	Sint32 x2,Sint32 y2,Sint32 z2,
+	Sint32 x3,Sint32 y3,Sint32 z3,Uint16 color,int backwards)
+{
+	//if (!backwards)
+		spTriangle3D(x1,y1,z1,x2,y2,z2,x3,y3,z3,color);
+	//else
+		spTriangle3D(x3,y3,z3,x2,y2,z2,x1,y1,z1,color);
+}
+
+void draw_spQuad3D(Sint32 x1,Sint32 y1,Sint32 z1,
+	Sint32 x2,Sint32 y2,Sint32 z2,
+	Sint32 x3,Sint32 y3,Sint32 z3,
+	Sint32 x4,Sint32 y4,Sint32 z4,Uint16 color,int backwards)
+{
+	//if (!backwards)
+		spQuad3D(x1,y1,z1,x2,y2,z2,x3,y3,z3,x4,y4,z4,color);
+	//else
+		spQuad3D(x4,y4,z4,x3,y3,z3,x2,y2,z2,x1,y1,z1,color);
+}
+
 
 int count_in(Sint32* points)
 {
@@ -157,17 +179,26 @@ void get_edges(int *edge,int the_one)
 	}
 }
 
-int add_point(tPoint* point,tPoint in,tPoint out,Sint32 in_value,Sint32 out_value)
+int add_point(tPoint* point,tPoint in,tPoint out,Sint32 in_value,Sint32 out_value,int correction)
 {
 	Sint32 distance = out_value-in_value;
 	if (distance == 0)
 		return 1;
 	Sint32 factor = spDiv(-in_value,distance);
 	if (factor < 0 || factor > SP_ONE)
-		printf("%f\n",spFixedToFloat(factor));
+		return 1;
 	point->x = spMul(in.x,factor) + spMul(out.x,SP_ONE-factor);
 	point->y = spMul(in.y,factor) + spMul(out.y,SP_ONE-factor);
 	point->z = spMul(in.z,factor) + spMul(out.z,SP_ONE-factor);
+	if (correction >= 0)
+	{
+		Sint32 value = FUNCTION(point->x,point->y,point->z);
+		//printf("%i: %i %i %i\n",correction,in_value,value,out_value);
+		if ((value < 0 && in_value < 0) || (value > 0 && in_value > 0))
+			return add_point(point,*point,out,value,out_value,correction-1);
+		else
+			return add_point(point,in,*point,in_value,value,correction-1);
+	}		
 	return 0;
 }
 
@@ -175,20 +206,14 @@ void draw_one(Sint32* point,tPoint* position,int the_one,int backwards)
 {
 	int edge[3];
 	get_edges(edge,the_one);
-	if (backwards)
-	{
-		int left = edge[0];
-		edge[0] = edge[2];
-		edge[2] = left;
-	}
 	tPoint triangle[3];
 	int i;
 	for (i = 0; i < 3; i++)
-		if (add_point(&(triangle[i]),position[the_one],position[edge[i]],point[the_one],point[edge[i]]))
+		if (add_point(&(triangle[i]),position[the_one],position[edge[i]],point[the_one],point[edge[i]],CORRECTION))
 			return;
-	spTriangle3D(triangle[0].x,triangle[0].y,triangle[0].z,
-	             triangle[1].x,triangle[1].y,triangle[1].z,
-	             triangle[2].x,triangle[2].y,triangle[2].z,COLOR);
+	draw_spTriangle3D(triangle[0].x,triangle[0].y,triangle[0].z,
+					 triangle[1].x,triangle[1].y,triangle[1].z,
+					 triangle[2].x,triangle[2].y,triangle[2].z,COLOR,backwards);
 }
 
 const int x_plus[8] = {0,1,1,0,0,1,1,0};
@@ -228,30 +253,31 @@ void draw_two_near(Sint32* point,tPoint* position,int one,int two,int backwards)
 	int pos = pos_two+1;
 	if (pos >= 3)
 		pos = 0;
-	if (add_point(&(quad[0]),position[one],position[edge_one[pos]],point[one],point[edge_one[pos]]))
+	if (add_point(&(quad[0]),position[one],position[edge_one[pos]],point[one],point[edge_one[pos]],CORRECTION))
 		return;
 	//1
 	pos++;
 	if (pos >= 3)
 		pos = 0;
-	if (add_point(&(quad[1]),position[one],position[edge_one[pos]],point[one],point[edge_one[pos]]))
+	if (add_point(&(quad[1]),position[one],position[edge_one[pos]],point[one],point[edge_one[pos]],CORRECTION))
 		return;
 	//2
 	pos = pos_one+1;
 	if (pos >= 3)
 		pos = 0;
-	if (add_point(&(quad[2]),position[two],position[edge_two[pos]],point[two],point[edge_two[pos]]))
+	if (add_point(&(quad[2]),position[two],position[edge_two[pos]],point[two],point[edge_two[pos]],CORRECTION))
 		return;
 	//3
 	pos++;
 	if (pos >= 3)
 		pos = 0;
-	if (add_point(&(quad[3]),position[two],position[edge_two[pos]],point[two],point[edge_two[pos]]))
+	if (add_point(&(quad[3]),position[two],position[edge_two[pos]],point[two],point[edge_two[pos]],CORRECTION))
 		return;
-	spQuad3D(quad[0].x,quad[0].y,quad[0].z,
-	         quad[1].x,quad[1].y,quad[1].z,
-	         quad[2].x,quad[2].y,quad[2].z,
-	         quad[3].x,quad[3].y,quad[3].z,COLOR);
+	
+	draw_spQuad3D(quad[0].x,quad[0].y,quad[0].z,
+		 		  quad[1].x,quad[1].y,quad[1].z,
+				  quad[2].x,quad[2].y,quad[2].z,
+				  quad[3].x,quad[3].y,quad[3].z,COLOR,backwards);	
 }
 
 void draw_two(Sint32* point,tPoint* position,int backwards)
@@ -338,29 +364,29 @@ void draw_three_near(Sint32* point,tPoint* position,int one,int two,int three,in
 		}
 	tPoint triangle[3];
 	int do_not_draw = 0;
-	do_not_draw |= add_point(&(triangle[2]),position[  one],position[     common],point[  one],point[     common]);
-	do_not_draw |= add_point(&(triangle[1]),position[three],position[above_three],point[three],point[above_three]);
-	do_not_draw |= add_point(&(triangle[0]),position[three],position[     common],point[three],point[     common]);
+	do_not_draw |= add_point(&(triangle[2]),position[  one],position[     common],point[  one],point[     common],CORRECTION);
+	do_not_draw |= add_point(&(triangle[1]),position[three],position[above_three],point[three],point[above_three],CORRECTION);
+	do_not_draw |= add_point(&(triangle[0]),position[three],position[     common],point[three],point[     common],CORRECTION);
 	if (!do_not_draw)
-		spTriangle3D(triangle[0].x,triangle[0].y,triangle[0].z,
-					 triangle[1].x,triangle[1].y,triangle[1].z,
-					 triangle[2].x,triangle[2].y,triangle[2].z,COLOR);
+		draw_spTriangle3D(triangle[0].x,triangle[0].y,triangle[0].z,
+					      triangle[1].x,triangle[1].y,triangle[1].z,
+					      triangle[2].x,triangle[2].y,triangle[2].z,COLOR,backwards);
 	do_not_draw = 0;
-	do_not_draw |= add_point(&(triangle[2]),position[  one],position[     common],point[  one],point[     common]);
-	do_not_draw |= add_point(&(triangle[1]),position[  one],position[  above_one],point[  one],point[  above_one]);
-	do_not_draw |= add_point(&(triangle[0]),position[three],position[above_three],point[three],point[above_three]);
+	do_not_draw |= add_point(&(triangle[2]),position[  one],position[     common],point[  one],point[     common],CORRECTION);
+	do_not_draw |= add_point(&(triangle[1]),position[  one],position[  above_one],point[  one],point[  above_one],CORRECTION);
+	do_not_draw |= add_point(&(triangle[0]),position[three],position[above_three],point[three],point[above_three],CORRECTION);
 	if (!do_not_draw)
-		spTriangle3D(triangle[0].x,triangle[0].y,triangle[0].z,
-					 triangle[1].x,triangle[1].y,triangle[1].z,
-					 triangle[2].x,triangle[2].y,triangle[2].z,COLOR);
+		draw_spTriangle3D(triangle[0].x,triangle[0].y,triangle[0].z,
+					      triangle[1].x,triangle[1].y,triangle[1].z,
+					      triangle[2].x,triangle[2].y,triangle[2].z,COLOR,backwards);
 	do_not_draw = 0;
-	do_not_draw |= add_point(&(triangle[2]),position[  one],position[  above_one],point[  one],point[  above_one]);
-	do_not_draw |= add_point(&(triangle[1]),position[  two],position[  above_two],point[  two],point[  above_two]);
-	do_not_draw |= add_point(&(triangle[0]),position[three],position[above_three],point[three],point[above_three]);
+	do_not_draw |= add_point(&(triangle[2]),position[  one],position[  above_one],point[  one],point[  above_one],CORRECTION);
+	do_not_draw |= add_point(&(triangle[1]),position[  two],position[  above_two],point[  two],point[  above_two],CORRECTION);
+	do_not_draw |= add_point(&(triangle[0]),position[three],position[above_three],point[three],point[above_three],CORRECTION);
 	if (!do_not_draw)
-		spTriangle3D(triangle[0].x,triangle[0].y,triangle[0].z,
-					 triangle[1].x,triangle[1].y,triangle[1].z,
-					 triangle[2].x,triangle[2].y,triangle[2].z,COLOR);
+		draw_spTriangle3D(triangle[0].x,triangle[0].y,triangle[0].z,
+					      triangle[1].x,triangle[1].y,triangle[1].z,
+					      triangle[2].x,triangle[2].y,triangle[2].z,COLOR,backwards);
 }
 
 void draw_three(Sint32* point,tPoint* position,int backwards)
@@ -451,6 +477,194 @@ void draw_three(Sint32* point,tPoint* position,int backwards)
 		printf("This shouldn't be possible\n");
 }
 
+void count_distance(int* d1,int* d2, int* d3,int distance)
+{
+	switch (distance)
+	{
+		case 1: (*d1)++; return;
+		case 2: (*d2)++; return;
+		case 3: (*d3)++; return;
+	}
+}
+
+void draw_four_case1(Sint32* point,tPoint* position,int one,int two,int three,int four)
+{
+	//Sorting, that the distance between consecutive points is one
+	if (get_distance(one,two) != 1)
+	{
+		int temp = two;
+		two = three;
+		three = temp;
+	}
+	if (get_distance(two,three) != 1)
+	{
+		int temp = three;
+		three = four;
+		four = temp;
+	}
+	
+	int edge_one[3];
+	get_edges(edge_one,one);
+	int edge_two[3];
+	get_edges(edge_two,two);
+	int edge_three[3];
+	get_edges(edge_three,three);
+	int edge_four[3];
+	get_edges(edge_four,four);
+	//Drawing the quad.
+	//Seaching the points of 1 and 3:
+	int above_one = -1;
+	int above_two = -1;
+	int above_three = -1;
+	int above_four = -1;
+	int i,j;
+	for (i = 0; i < 3; i++)
+		if (edge_one[i] != four && edge_one[i] != two)
+		{
+			above_one = edge_one[i];
+			break;
+		}
+	for (i = 0; i < 3; i++)
+		if (edge_two[i] != one && edge_two[i] != three)
+		{
+			above_two = edge_two[i];
+			break;
+		}
+	for (i = 0; i < 3; i++)
+		if (edge_three[i] != four && edge_three[i] != two)
+		{
+			above_three = edge_three[i];
+			break;
+		}
+	for (i = 0; i < 3; i++)
+		if (edge_four[i] != three && edge_four[i] != one)
+		{
+			above_four = edge_four[i];
+			break;
+		}
+	tPoint quad[3];
+	int do_not_draw = 0;
+	if (add_point(&(quad[0]),position[  one],position[  above_one],point[  one],point[  above_one],CORRECTION))
+		return;
+	if (add_point(&(quad[1]),position[  two],position[  above_two],point[  two],point[  above_two],CORRECTION))
+		return;
+	if (add_point(&(quad[2]),position[three],position[above_three],point[three],point[above_three],CORRECTION))
+		return;
+	if (add_point(&(quad[3]),position[ four],position[ above_four],point[ four],point[ above_four],CORRECTION))
+		return;
+
+	draw_spQuad3D(quad[0].x,quad[0].y,quad[0].z,
+	         quad[1].x,quad[1].y,quad[1].z,
+	         quad[2].x,quad[2].y,quad[2].z,
+	         quad[3].x,quad[3].y,quad[3].z,COLOR,0);
+}
+void draw_four(Sint32* point,tPoint* position)
+{
+	//Finding the three:
+	int i;
+	int one = -1;
+	int two = -1;
+	int three = -1;
+	int four;
+	for (i = 0; i < 8; i++)
+		if (point[i] <= 0)
+		{
+			if (one == -1)
+				one = i;
+			else
+			if (two == -1)
+				two = i;
+			else
+			if (three == -1)
+				three = i;
+			else
+				four = i;
+		}
+	int distance12 = get_distance(one,two);
+	int distance13 = get_distance(one,three);
+	int distance14 = get_distance(one,four);
+	int distance23 = get_distance(two,three);
+	int distance24 = get_distance(two,four);
+	int distance34 = get_distance(three,four);
+	
+	int d1 = 0, d2 = 0, d3 = 0;
+	count_distance(&d1,&d2,&d3,distance12);
+	count_distance(&d1,&d2,&d3,distance13);
+	count_distance(&d1,&d2,&d3,distance14);
+	count_distance(&d1,&d2,&d3,distance23);
+	count_distance(&d1,&d2,&d3,distance24);
+	count_distance(&d1,&d2,&d3,distance34);
+	
+	if (d1 == 4) //Case 1
+	{
+		draw_four_case1(point,position,one,two,three,four);
+	}
+	else
+	if (d1 == 2 && d2 == 3 && d3 == 1) //Case 2
+	{
+		//Searching the one without distance 1
+		int the_one;
+		int other[3];
+		if (distance12!=1 && distance13!=1 && distance14!=1)
+		{
+			the_one = one;
+			other[0] = two;
+			other[1] = three;
+			other[2] = four;
+		}
+		else
+		if (distance12!=1 && distance23!=1 && distance24!=1)
+		{
+			the_one = two;
+			other[0] = one;
+			other[1] = three;
+			other[2] = four;
+		}
+		else
+		if (distance13!=1 && distance23!=1 && distance34!=1)
+		{
+			the_one = three;
+			other[0] = one;
+			other[1] = two;
+			other[2] = four;
+		}
+		else
+		if (distance14!=1 && distance24!=1 && distance34!=1)
+		{
+			the_one = four;
+			other[0] = one;
+			other[1] = two;
+			other[2] = three;
+		}
+		draw_one(point,position,the_one,0);
+		draw_three_near(point,position,other[0],other[1],other[2],0);
+	}
+	else
+	if (d2 == 6) //Case 3
+	{
+		draw_one(point,position,one,0);
+		draw_one(point,position,two,0);
+		draw_one(point,position,three,0);		
+		draw_one(point,position,four,0);		
+	}
+	else
+	if (d1 == 3 && d2 == 3) //Case 4
+	{
+		//TO DO
+	}
+	else
+	if (d1 == 3 && d2 == 2 && d3 == 1) //Case 5 / 7
+	{
+		//TO DO
+	}
+	else
+	if (d1 == 2 && d2 == 4) //Case 6
+	{
+		//TO DO
+	}
+	else
+		printf("This shouldn't be possible\n");
+}
 
 void draw( void )
 {
@@ -459,7 +673,7 @@ void draw( void )
 	spClearTarget( 0 );
 	//spSetZSet(0);
 	//spSetZTest(0);
-	
+	//spSetCulling(0);
 	Sint32 zShift = spFloatToFixed(-4.0f);
 
 
@@ -479,12 +693,18 @@ void draw( void )
 			{
 				Sint32 X = MIN+x*RESOLUTION;
 				Sint32 Y = MIN+y*RESOLUTION;
+				#ifdef FIRST_TRANSFORMATION
 				Sint32 Z = MIN+z*RESOLUTION+zShift;
+				#else
+				Sint32 Z = MIN+z*RESOLUTION;
+				#endif
 				VALUE(x,y,z) = function_with_modelview(spGetMatrix(),FUNCTION,X,Y,Z);
 				PIXEL(x,y,z).x = X;
 				PIXEL(x,y,z).y = Y;
 				PIXEL(x,y,z).z = Z;
+				#ifdef FIRST_TRANSFORMATION
 				Z-=zShift;
+				#endif
 				Sint32 value = FUNCTION(X,Y,Z);
 				if (value <= 0)
 				{
@@ -534,13 +754,15 @@ void draw( void )
 					case 1: draw_one(points,position,get_the_one(points),0); break;
 					case 2: draw_two(points,position,0); break;
 					case 3: draw_three(points,position,0); break;
+					case 4: draw_four(points,position); break;
 					case 5: draw_three(points,position,1); break;
 					case 6: draw_two(points,position,1); break;
 					case 7: draw_one(points,position,get_the_none(points),1); break;
 				}
 				if (count > 0 && count < 8)
 					spEllipse3D(PIXEL(x,y,z).x+RESOLUTION/2,PIXEL(x,y,z).y+RESOLUTION/2,PIXEL(x,y,z).z+RESOLUTION/2,RESOLUTION/4,RESOLUTION/4,65535);
-			}	spSetBlending(SP_ONE);
+			}
+	spSetBlending(SP_ONE);
 	int i;
 	printf("----- Draw these count so often:\n");
 	for (i = 0; i < 8; i++)
@@ -550,7 +772,7 @@ void draw( void )
 
 int calc( Uint32 steps )
 {
-	rotation += steps*4;
+	rotation += steps*32;
 	if ( spGetInput()->button[SP_BUTTON_START] )
 		return 1;
 	return 0;
