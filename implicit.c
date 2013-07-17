@@ -30,6 +30,7 @@
 #define PIXEL(x,y,z) rasterGrid[(x)+(y)*size+(z)*size*size]
 #define FIRST_TRANSFORMATION
 
+
 SDL_Surface* screen;
 Sint32 rotation;
 Sint32* raster;
